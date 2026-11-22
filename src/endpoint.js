@@ -5,5 +5,5 @@ export function endpoint(value) {
   if (!['https:','wss:'].includes(url.protocol) || !['/','/webrtc/wss/'].includes(url.pathname)) {
     throw new Error('Укажите имя сервера и при необходимости порт. SIP использует /webrtc/wss/');
   }
-  return {sipServerUrl:url.host,sipServerIp:url.hostname,remoteAddress:url.hostname,iceServers:[]};
+  return {sipServerUrl:url.host};
 }

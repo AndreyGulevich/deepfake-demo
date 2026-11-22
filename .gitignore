@@ -5,3 +5,6 @@ public/models/
 .DS_Store
 .env*
 *.log
+.venv-deepfacelive/
+.venv-deepfacelive-coreml/
+__pycache__/

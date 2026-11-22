@@ -1,0 +1,12 @@
+import {spawnSync} from 'node:child_process';
+import {existsSync} from 'node:fs';
+import {join} from 'node:path';
+import {homedir} from 'node:os';
+const repo = process.env.DLC_REPO || join(homedir(),'.cache','deepfake-demo','Deep-Live-Cam');
+const models = process.env.DLC_MODELS || join(homedir(),'.cache','deepfake-demo','deeplivecam-models');
+const windows = process.platform === 'win32';
+const venv = join(repo,'venv',windows ? 'Scripts/python.exe' : 'bin/python');
+const python = process.env.DLC_PYTHON || (existsSync(venv) ? venv : windows ? 'py' : 'python3');
+const result = spawnSync(python,['integrations/deeplivecam/server.py','--repo',repo,'--models',models],{stdio:'inherit'});
+if (result.error) console.error(result.error.message);
+process.exitCode = result.status ?? 1;

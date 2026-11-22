@@ -5,11 +5,13 @@ const root = path.resolve(__dirname,'../dist');
 protocol.registerSchemesAsPrivileged([{scheme:'studio',privileges:{
   standard:true,secure:true,supportFetchAPI:true,corsEnabled:true,stream:true
 }}]);
-const page = !app.isPackaged && process.env.STUDIO_DEV === '1'
-  ? 'http://127.0.0.1:3000/' : 'studio://app/index.html';
+const page = 'studio://app/index.html';
 app.whenReady().then(() => {
   protocol.handle('studio', request => {
     const url = new URL(request.url);
+    if (url.hostname === 'app' && url.pathname === '/sip-config/address' && request.method === 'GET') {
+      return net.fetch('https://msk.vinteo.com/api/v1/address', {credentials:'omit', cache:'no-store', redirect:'error'});
+    }
     const file = path.resolve(root,'.' + decodeURIComponent(url.pathname));
     if (url.hostname !== 'app' || !file.startsWith(root + path.sep)) return new Response(null,{status:403});
     return net.fetch(pathToFileURL(file).href);

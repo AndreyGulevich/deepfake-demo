@@ -1,0 +1,9 @@
+torch==2.15.0
+opencv-python-headless==5.1.0.95
+numpy==2.5.5
+einops==0.8.2
+fvcore==0.1.5.post20221221
+PyYAML
+simplejson
+six
+psutil

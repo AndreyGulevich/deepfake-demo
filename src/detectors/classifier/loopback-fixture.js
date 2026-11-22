@@ -9,19 +9,17 @@ export async function runLoopback() {
   canvas.width = 320;
   canvas.height = 240;
   const context = canvas.getContext('2d');
+  const response = await fetch(new URL('./pico/fixtures/astronaut.gray', import.meta.url));
+  if (!response.ok) throw new Error('Missing reference portrait');
+  const gray = new Uint8Array(await response.arrayBuffer());
+  if (gray.length !== 192 * 192) throw new Error('Invalid reference portrait');
+  const portrait = context.createImageData(192, 192);
+  gray.forEach((value, i) => portrait.data.set([value, value, value, 255], 4 * i));
   let tick = 0;
   function paint() {
     context.fillStyle = '#244c54';
     context.fillRect(0, 0, 320, 240);
-    context.fillStyle = '#ffc880';
-    context.beginPath();
-    context.ellipse(160, 125, 68, 87, 0, 0, 2 * Math.PI);
-    context.fill();
-    context.fillStyle = '#332820';
-    const blink = tick++ % 30 === 0 ? 2 : 10;
-    context.fillRect(125, 100, 15, blink);
-    context.fillRect(180, 100, 15, blink);
-    context.fillRect(142, 158, 36, 4);
+    context.putImageData(portrait, 62 + (tick++ % 3), 24);
   }
   paint();
   const stream = canvas.captureStream(10);
@@ -35,7 +33,7 @@ export async function runLoopback() {
       receiver.ontrack = async event => {
         try {
           startedAt = performance.now();
-          handle = await classifier.start({ stream: new MediaStream([event.track]), onResult: resolve, onError: reject });
+          handle = await classifier.start({ stream: new MediaStream([event.track]), onResult: text => { if (text.includes('%')) resolve(text); }, onError: reject });
         } catch (error) { reject(error); }
       };
     });

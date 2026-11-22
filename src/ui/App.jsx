@@ -40,25 +40,28 @@ function Device({ kind, state, run, busy, studio }) {
   const name = camera ? 'Камера' : 'Микрофон';
   const devices = state.devices.filter(d => d.kind === (camera ? 'videoinput' : 'audioinput') && d.deviceId);
   const active = state[kind];
+  busy = busy || state.starting[kind];
   return <div className="device">
     <button aria-pressed={active} aria-label={name} disabled={busy} onClick={() => run(kind, () => camera ? studio.toggleCamera() : studio.toggleMic())}>
-      <span className={'lamp ' + (active ? 'on' : '')}/>{name}<span className="device-state">{active ? 'вкл' : 'выкл'}</span>
+      <span className={'lamp ' + (active ? 'on' : '')}/>{name}<span className="device-state">{state.starting[kind] ? 'запуск…' : active ? 'вкл' : 'выкл'}</span>
     </button>
     <select aria-label={'Устройство · ' + name} value={state[kind + 'Id'] || ''} disabled={busy || !devices.length}
       onChange={e => run(kind, () => studio.setDevice(kind, e.target.value))}>
       <option value="" disabled>По умолчанию</option>
       {devices.map((d, index) => <option key={d.deviceId} value={d.deviceId}>{d.label || name + ' ' + (index + 1)}</option>)}
     </select>
+    {state.deviceErrors[kind] && <small role="status">{name}: {state.deviceErrors[kind]}</small>}
   </div>;
 }
 
-function Processor({ kind, model, run, busy, studio }) {
+function Processor({ kind, model, run, busy, studio, photo }) {
   const [open, setOpen] = useState(false);
   const group = useRef(null);
   const trigger = useRef(null);
   const id = useId();
   const selected = model.options.find(o => o.id === model.selected);
   const title = kind === 'maker' ? 'Генератор' : 'Детектор';
+  const optionName = option => kind === 'detector' ? option.label + ' · ' + locations[option.location] : option.label;
   useEffect(() => {
     if (!open) return;
     const outside = e => { if (!group.current?.contains(e.target)) setOpen(false); };
@@ -68,35 +71,77 @@ function Processor({ kind, model, run, busy, studio }) {
   return <section className="processor" aria-labelledby={id + '-title'}>
     <header><h3 id={id + '-title'}>{title}</h3>
       <button type="button" className="switch" role="switch" aria-checked={model.active} aria-label={title}
-        disabled={busy || (!model.active && !selected?.available)} onClick={() => { setOpen(false); run(kind, () => studio.toggle(kind)); }}>
+        disabled={busy || (!model.active && !selected?.available)} onClick={() => { setOpen(false); run(kind, () => studio.toggle(kind, photo)); }}>
         <span aria-hidden="true"/>
       </button>
     </header>
-    <div className="sub">{kind === 'maker' ? 'Исходящий поток' : 'Входящий поток'}</div>
-    <div className="choice" ref={group} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}
+    {kind === 'maker' ? <div className="sub">Исходящий поток</div> :
+      <label className="detector-source">Анализировать поток
+        <select value={model.source} disabled={busy || model.active}
+          onChange={event => studio.setDetectorSource(event.target.value)}>
+          <option value="incoming">Входящий · из конференции</option>
+          <option value="outgoing">Исходящий · после генератора</option>
+        </select>
+      </label>}
+    <div className="choice" ref={group} onBlur={e => { if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}
       onKeyDown={e => { if (e.key === 'Escape') { setOpen(false); trigger.current.focus(); } }}>
-      <button ref={trigger} className="picker" aria-label={'Реализация · ' + title + ' · ' + (selected?.label || 'Выбрать')}
-        aria-expanded={open} aria-controls={id} disabled={model.active || busy} onClick={() => setOpen(!open)}>
-        <span>{selected?.label || 'Выберите реализацию'}</span><span aria-hidden="true">{open ? '▴' : '▾'}</span>
+      <button ref={trigger} className="picker" aria-label={'Реализация · ' + title + ' · ' + (selected ? optionName(selected) : 'Выбрать')}
+        aria-expanded={open} aria-controls={id} disabled={model.active || busy} onClick={() => { if (!open) void studio.refreshOptions(kind); setOpen(!open); }}>
+        <span>{selected ? optionName(selected) : 'Выберите реализацию'}</span><span aria-hidden="true">{open ? '▴' : '▾'}</span>
       </button>
       {open && <fieldset id={id} className="options"><legend className="sr">Реализация · {title}</legend>
-        {model.options.map(option => <label key={option.id} className="option">
+        {model.options.map(option => <label key={option.id} className={option.available ? "option" : "option unavailable"}>
           <input type="radio" name={id} checked={option.id === model.selected} disabled={!option.available}
             onChange={() => { trigger.current.focus(); setOpen(false); run(kind, () => studio.select(kind, option.id)); }}/>
-          <span><strong>{option.label}</strong><small>{locations[option.location]}</small>{!option.available && <small>{option.reason || 'Недоступно на этом устройстве'}</small>}</span>
+          <span><strong>{optionName(option)}{!option.available && " · недоступно"}</strong>{kind === 'maker' && <small>{locations[option.location]}</small>}{!option.available && <small>{option.reason || 'Недоступно на этом устройстве'}</small>}</span>
         </label>)}
         {!model.options.length && <p>Доступных реализаций пока нет</p>}
       </fieldset>}
     </div>
-    {selected && <div className="detail">{locations[selected.location]}{!selected.available && selected.reason && <div>{selected.reason}</div>}</div>}
+    {selected && (kind === 'maker' || !selected.available) && <div className="detail">{kind === 'maker' && locations[selected.location]}{!selected.available && selected.reason && <div>{selected.reason}</div>}</div>}
+  </section>;
+}
+
+function ReplacementPhoto({ photo, setPhoto, disabled }) {
+  const input = useRef(null);
+  const [error, setError] = useState('');
+  useEffect(() => () => { if (photo) URL.revokeObjectURL(photo.url); }, [photo]);
+
+  function choose(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    event.target.value = '';
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > 20 * 1024 * 1024) {
+      setError('Выберите JPEG, PNG или WebP размером до 20 МБ.');
+      return;
+    }
+    setError('');
+    setPhoto({file, url: URL.createObjectURL(file)});
+  }
+  return <section className="processor replacement" aria-labelledby="replacement-title">
+    <h3 id="replacement-title">Фото для замены лица</h3>
+    <div className="sub">Одна фотография для всех генераторов</div>
+    {photo && <figure>
+      <img src={photo.url} alt="Предпросмотр лица для генератора" onError={() => {
+        setPhoto(null); setError('Не удалось прочитать фотографию.');
+      }}/>
+      <figcaption>{photo.file.name}</figcaption>
+    </figure>}
+    <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={disabled} onChange={choose}/>
+    <div className="photo-actions">
+      <button type="button" disabled={disabled} onClick={() => input.current.click()}>{photo ? 'Заменить фото' : 'Выбрать фото'}</button>
+      {photo && <button type="button" disabled={disabled} onClick={() => {setPhoto(null); setError('');}}>Вернуть демо-лицо</button>}
+    </div>
+    {error && <small role="alert">{error}</small>}
   </section>;
 }
 
 export default function App() {
+  const [photo, setPhoto] = useState(null);
   const service = useRef(null);
   const [state, setState] = useState(null);
-  const [server, setServer] = useState('');
-  const [number, setNumber] = useState('');
+  const [server, setServer] = useState('msk.vinteo.com');
+  const [number, setNumber] = useState('1111');
   const [busy, setBusy] = useState({});
   const [notice, setNotice] = useState('');
   useEffect(() => {
@@ -118,22 +163,26 @@ export default function App() {
   const result = typeof state.result === 'string' ? state.result : state.result?.text;
   return <main>
     <header className="mast"><h1><span className="mark" aria-hidden="true"><i/><i/><i/></span>Deepfake Demo</h1>
+      {state.detector.active && <span className="detector-reading" role="status">{result || 'Ожидание кадра'}</span>}
       <span role="status" className="call-state"><span className={'lamp ' + (state.call === 'active' ? 'on' : '')}/>{callLabels[state.call]}</span>
     </header>
+    {(notice || state.error) && <div role="alert" className="error">{notice || state.error?.message || String(state.error)}</div>}
+    <div className="workspace"><section className="video-section"><h2>Видеомонитор</h2>
+      <div className="feeds"><Monitor stream={state.remote}/><Monitor local stream={state.camera ? state.local : null}/></div>
+      <div className="media">{['camera','mic'].map(kind => <Device key={kind} {...{kind,state,run,studio}} busy={busy[kind]}/>)}</div>
+    </section>
+    <section><h2>Обработка видео</h2>
+      <div className="processors">
+        <Processor kind="detector" model={state.detector} busy={busy.detector} {...{studio,run}}/>
+        <Processor kind="maker" model={state.maker} busy={busy.maker} photo={photo?.file} {...{studio,run}}/>
+        <ReplacementPhoto photo={photo} setPhoto={setPhoto} disabled={state.maker.active || busy.maker}/>
+      </div>
+    </section></div>
     <form className="connection" onSubmit={e => { e.preventDefault(); run('dial', () => studio.dial(server.trim(), number.trim())); }}>
       <label>Адрес SIP-сервера<input required value={server} placeholder="sip.example.org" disabled={inCall || busy.dial} onChange={e => setServer(e.target.value)} spellCheck={false} autoCapitalize="none"/></label>
       <label>Номер конференции<input required value={number} placeholder="1000" disabled={inCall || busy.dial} onChange={e => setNumber(e.target.value)} /></label>
       {inCall ? <button type="button" className="end" disabled={busy.hangup} onClick={event => { event.preventDefault(); run('hangup', () => studio.hangup()); }}>Завершить звонок</button> :
         <button className="connect" disabled={busy.dial || !server.trim() || !number.trim()} type="submit">Начать звонок</button>}
     </form>
-    {(notice || state.error) && <div role="alert" className="error">{notice || state.error?.message || String(state.error)}</div>}
-    <div className="workspace"><section className="video-section"><h2>Видеомонитор</h2>
-      <div className="feeds"><Monitor stream={state.remote}/><Monitor local stream={state.camera ? state.local : null}/></div>
-      <div className="media">{['camera','mic'].map(kind => <Device key={kind} {...{kind,state,run,studio}} busy={busy[kind]}/>)}</div>
-    </section>
-    <aside><h2>Обработка видео</h2>
-      {['maker','detector'].map(kind => <Processor key={kind} {...{kind,studio,run}} model={state[kind]} busy={busy[kind]}/>)}
-      {state.detector.active && <p className="result" role="status">{result || 'Ожидание результата анализа'}</p>}
-    </aside></div>
   </main>;
 }

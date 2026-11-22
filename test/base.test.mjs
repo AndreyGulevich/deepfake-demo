@@ -4,7 +4,7 @@ import {endpoint} from '../src/endpoint.js';
 import {factory,unavailable} from '../src/catalog.js';
 test('server supports host, port and Vinteo WebSocket address',()=>{
   assert.equal(endpoint(' wss://example.org:8443/webrtc/wss/ ').sipServerUrl,'example.org:8443');
-  assert.equal(endpoint('example.org').remoteAddress,'example.org');
+  assert.equal(endpoint('example.org').sipServerUrl,'example.org');
   for (const s of ['','ws://example.org','https://user@host','host/other','host?secret']) assert.throws(()=>endpoint(s));
 });
 test('catalog preserves disabled reason and refuses start',async()=>{

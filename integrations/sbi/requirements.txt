@@ -1,0 +1,4 @@
+efficientnet-pytorch==0.7.1
+numpy==2.5.5
+opencv-python-headless==5.1.0.95
+torch==2.15.0

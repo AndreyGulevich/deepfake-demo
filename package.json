@@ -9,14 +9,23 @@
   "main": "electron/main.cjs",
   "packageManager": "yarn@1.22.22",
   "scripts": {
-    "start": "node scripts/start.mjs",
+    "start": "vite --open",
+    "start:electron": "yarn build && electron .",
     "dev:web": "vite",
     "build": "vite build",
     "build:mac": "yarn build && electron-builder --mac dmg --publish never",
     "build:win": "yarn build && electron-builder --win nsis --publish never",
     "build:linux": "yarn build && electron-builder --linux AppImage --publish never",
-    "test": "node --test test/*.test.mjs src/makers/avatar/tracker.test.mjs",
-    "model:detector": "node src/detectors/classifier/prepare.mjs"
+    "test": "node --test test/*.test.mjs src/detectors/classifier/pico/tracker.test.mjs",
+    "model:mtl": "node src/detectors/mtl/prepare.mjs",
+    "model:detector": "node src/detectors/classifier/prepare.mjs",
+    "setup:deepfacelive": "node scripts/deepfacelive.mjs setup",
+    "start:deepfacelive": "node scripts/deepfacelive.mjs start",
+    "start:deeplivecam": "node scripts/deeplivecam.mjs",
+    "start:ghostv2": "node scripts/ghostv2.mjs",
+    "start:ftcn": "node scripts/ftcn.mjs",
+    "start:altfreezing": "node scripts/local-detector.mjs altfreezing",
+    "start:sbi": "node scripts/local-detector.mjs sbi"
   },
   "devDependencies": {
     "@krivega/jssip": "8.0.4",
@@ -53,6 +62,41 @@
     "linux": {
       "target": "AppImage",
       "category": "AudioVideo"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "integrations/deepfacelive",
+        "to": "deepfacelive",
+        "filter": [
+          "server.py",
+          "runtime.py",
+          "prepare.py",
+          "requirements.txt",
+          "MODEL.md"
+        ]
+      },
+      {
+        "from": "integrations/deeplivecam",
+        "to": "deeplivecam",
+        "filter": [
+          "server.py",
+          "dlc_engine.py",
+          "README.md",
+          "TERMS.md",
+          "INSTALL.md",
+          "requirements.txt",
+          "prepare_models.py"
+        ]
+      },
+      {
+        "from": "integrations/ftcn",
+        "to": "ftcn",
+        "filter": [
+          "*.py",
+          "requirements.txt",
+          "README.md"
+        ]
+      }
+    ]
   }
 }

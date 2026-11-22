@@ -13,7 +13,7 @@ async function close(code) {
   process.exit(code);
 }
 child.on('error', err => { console.error(err); close(1); });
-child.on('exit', code => close(code ?? 0));
+child.on('exit', () => { if (!closing) console.log('Electron закрыт. Браузерная демка продолжает работать.'); });
 process.on('SIGINT', () => close(0));
 process.on('SIGTERM', () => close(0));
 server.printUrls();
