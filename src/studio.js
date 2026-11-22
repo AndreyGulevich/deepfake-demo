@@ -15,6 +15,7 @@ export function createStudio(onState) {
   const runs = {maker:null,detector:null};
   let connector = null;
   let generation = 0;
+  let cancelDial;
   let disposed = false;
   let queue = Promise.resolve();
   const env = {ua:new UAParser().getResult(),secure:window.isSecureContext,mediaDevices:media};
@@ -46,6 +47,12 @@ export function createStudio(onState) {
       await connector.replaceMediaStream(stream ?? new MediaStream(),{addMissing:true,deleteExisting:true});
     }
   }
+  async function sendVideo(track) {
+    if (!connector || state.call !== 'active') return;
+    const sender = connector.connection?.getSenders().find(item=>item.track?.kind==='video');
+    if (sender) await sender.replaceTrack(track);
+    else await send(local(track));
+  }
   async function acquire(kind,id) {
     const type = kind === 'camera' ? 'video' : 'audio';
     if (!media) throw new Error('Захват медиа недоступен в этом браузере');
@@ -55,7 +62,7 @@ export function createStudio(onState) {
   async function stop(kind) {
     const run = runs[kind];
     if (!run) return;
-    if (kind === 'maker') await send(local(tracks.camera));
+    if (kind === 'maker') await sendVideo(tracks.camera);
     runs[kind] = null;
     try { await run.stop(); } finally {
       update({[kind]:{...state[kind],active:false},local:local(),...(kind==='detector'?{result:''}:{})});
@@ -85,13 +92,15 @@ export function createStudio(onState) {
       onResult:result=>update({result}),onError:error=>{update({error:error.message || String(error)});serialize(()=>stop(kind));}});
     try {
       if (kind==='detector' && stream!==state.remote) throw new Error('Входящий поток изменился');
-      if (kind==='maker') await send(local(run.track));
+      if (kind==='maker') await sendVideo(run.track);
       runs[kind] = run;
       update({[kind]:{...state[kind],active:true},local:local()});
     } catch(error) {await run.stop();throw error;}
   }
   async function hangup() {
     ++generation;
+    cancelDial?.();
+    cancelDial = undefined;
     const current = connector;
     connector = null;
     update({call:'idle',remote:null,result:''});
@@ -109,6 +118,7 @@ export function createStudio(onState) {
     const token = ++generation;
     const current = new SipConnector({JsSIP});
     connector = current;
+    const cancelled = new Promise(resolve=>{cancelDial=resolve;});
     update({call:'connecting',error:''});
     const ended = event=>{
       if (connector!==current) return;
@@ -117,7 +127,7 @@ export function createStudio(onState) {
     };
     current.on('call:ended',ended);
     current.on('call:failed',ended);
-    current.on('connection:disconnected',ended);
+    current.on('connection:disconnected',event=>ended({cause:event?.cause || 'Соединение с SIP-сервером закрыто. Проверьте адрес и доступность сервера.'}));
     current.on('call:remote-streams-changed',({streams})=>{
       if (connector!==current || state.remote===streams.mainStream) return;
       update({remote:streams.mainStream ?? null});
@@ -126,10 +136,10 @@ export function createStudio(onState) {
     try {
       await queue;
       if (token!==generation) return;
-      await current.connect({...config,register:false,displayName:'Deepfake Demo'});
+      await Promise.race([current.connect({...config,register:false,displayName:'Deepfake Demo'}),cancelled]);
       if (token!==generation) return;
-      await current.call({number:number.trim(),mediaStream:local() ?? new MediaStream(),
-        offerToReceiveAudio:true,offerToReceiveVideo:true},{autoRedial:false});
+      await Promise.race([current.call({number:number.trim(),mediaStream:local() ?? new MediaStream(),
+        offerToReceiveAudio:true,offerToReceiveVideo:true},{autoRedial:false}),cancelled]);
       if (token===generation) update({call:'active',remote:current.getRemoteStreams().mainStream ?? null});
     } catch(error) {
       if (token!==generation) return;

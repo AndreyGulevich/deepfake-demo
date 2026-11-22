@@ -3,7 +3,7 @@
   "productName": "Deepfake Demo",
   "description": "Local SIP video and synthetic media test studio",
   "author": "Deepfake Demo contributors",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
@@ -15,7 +15,8 @@
     "build:mac": "yarn build && electron-builder --mac dmg --publish never",
     "build:win": "yarn build && electron-builder --win nsis --publish never",
     "build:linux": "yarn build && electron-builder --linux AppImage --publish never",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs src/makers/avatar/tracker.test.mjs",
+    "model:detector": "node src/detectors/classifier/prepare.mjs"
   },
   "devDependencies": {
     "@krivega/jssip": "8.0.4",
@@ -25,14 +26,33 @@
     "react-dom": "^19.2.0",
     "sip-connector": "31.3.9",
     "ua-parser-js": "1.0.41",
-    "vite": "^7.2.2"
+    "vite": "^7.2.2",
+    "onnxruntime-web": "1.22.0"
   },
   "build": {
     "appId": "studio.deepfakedemo.desktop",
-    "directories": {"output":"release"},
-    "files": ["dist/**/*","electron/**/*","package.json"],
-    "mac": {"target":"dmg","identity":null,"extendInfo":{"NSCameraUsageDescription":"Камера для исходящего видеозвонка","NSMicrophoneUsageDescription":"Микрофон для звука конференции"}},
-    "win": {"target":"nsis"},
-    "linux": {"target":"AppImage","category":"AudioVideo"}
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": "dmg",
+      "identity": null,
+      "extendInfo": {
+        "NSCameraUsageDescription": "Камера для исходящего видеозвонка",
+        "NSMicrophoneUsageDescription": "Микрофон для звука конференции"
+      }
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "AudioVideo"
+    }
   }
 }

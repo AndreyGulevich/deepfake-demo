@@ -1,0 +1,9 @@
+Deep-Fake-Detector-v2-Model by prithivMLmods, fine-tuned from Google ViT.
+Quantized ONNX conversion by onnx-community, used unmodified.
+The original model and the ONNX conversion are marked Apache License 2.0.
+https://huggingface.co/prithivMLmods/Deep-Fake-Detector-v2-Model
+https://huggingface.co/onnx-community/Deep-Fake-Detector-v2-Model-ONNX/tree/4ea3d66dfb1bedca29727c6a0c6fa061d5f3f9c9
+See Apache-2.0.txt. Classifier output is a per-frame softmax score.
+The training domain is face images. Layouts, compression, drawings and
+small faces can produce misleading scores. This adapter classifies the
+entire received frame. It does not identify a person or localize faces.

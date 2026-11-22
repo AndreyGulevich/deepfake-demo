@@ -123,7 +123,7 @@ export default function App() {
     <form className="connection" onSubmit={e => { e.preventDefault(); run('dial', () => studio.dial(server.trim(), number.trim())); }}>
       <label>Адрес SIP-сервера<input required value={server} placeholder="sip.example.org" disabled={inCall || busy.dial} onChange={e => setServer(e.target.value)} spellCheck={false} autoCapitalize="none"/></label>
       <label>Номер конференции<input required value={number} placeholder="1000" disabled={inCall || busy.dial} onChange={e => setNumber(e.target.value)} /></label>
-      {inCall ? <button type="button" className="end" disabled={busy.hangup} onClick={() => run('hangup', () => studio.hangup())}>Завершить звонок</button> :
+      {inCall ? <button type="button" className="end" disabled={busy.hangup} onClick={event => { event.preventDefault(); run('hangup', () => studio.hangup()); }}>Завершить звонок</button> :
         <button className="connect" disabled={busy.dial || !server.trim() || !number.trim()} type="submit">Начать звонок</button>}
     </form>
     {(notice || state.error) && <div role="alert" className="error">{notice || state.error?.message || String(state.error)}</div>}
