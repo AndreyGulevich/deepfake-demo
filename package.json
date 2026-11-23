@@ -9,7 +9,7 @@
   "main": "electron/main.cjs",
   "packageManager": "yarn@1.22.22",
   "scripts": {
-    "start": "vite --open",
+    "start": "node scripts/start.mjs",
     "start:electron": "yarn build && electron .",
     "dev:web": "vite",
     "build": "vite build",
@@ -22,6 +22,9 @@
     "setup:deepfacelive": "node scripts/deepfacelive.mjs setup",
     "start:deepfacelive": "node scripts/deepfacelive.mjs start",
     "start:deeplivecam": "node scripts/deeplivecam.mjs",
+    "start:liveportrait": "node scripts/liveportrait.mjs",
+    "start:hyperswap": "node scripts/hyperswap.mjs",
+    "start:hififace": "node scripts/hififace.mjs",
     "start:ghostv2": "node scripts/ghostv2.mjs",
     "start:ftcn": "node scripts/ftcn.mjs",
     "start:altfreezing": "node scripts/local-detector.mjs altfreezing",

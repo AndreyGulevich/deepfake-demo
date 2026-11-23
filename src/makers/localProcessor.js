@@ -1,6 +1,8 @@
+import {generatedFrames} from '../generatedFrames.js';
+
 const size = 256;
 
-export function localProcessor({id,label,engine,port}) {
+export function localProcessor({id,label,engine,port,squareOutput=false,publishFrames=false}) {
   const endpoint = `http://127.0.0.1:${port}`;
   function request(path, options = {}, timeout = 5000) {
     const deadline = AbortSignal.timeout(timeout);
@@ -39,7 +41,8 @@ export function localProcessor({id,label,engine,port}) {
     capture.width = capture.height = size;
     const reader = capture.getContext('2d', {willReadFrequently:true});
     const output = document.createElement('canvas');
-    const swap = id === 'deeplivecam' || id === 'ghostv2';
+    const swap = squareOutput;
+    const rendered = publishFrames ? new EventTarget() : null;
     if (swap) {
       output.width = size;
       output.height = size;
@@ -115,6 +118,7 @@ export function localProcessor({id,label,engine,port}) {
       if (signal.aborted) return;
       if (swap) {
         painter.putImageData(new ImageData(data, size, size), 0, 0);
+        rendered?.dispatchEvent(new Event('frame'));
         if (callCanvas) paintCallFrame();
       } else {
         reader.putImageData(new ImageData(data, size, size), 0, 0);
@@ -159,9 +163,10 @@ export function localProcessor({id,label,engine,port}) {
       await render();
       [track] = output.captureStream(24).getVideoTracks();
       if (!track) throw new Error('Не удалось создать выходную видеодорожку');
+      if (rendered) generatedFrames.set(track, {canvas:output, rendered});
       timer = setTimeout(next, 0);
       return {track, stop, getCallTrack, releaseCallTrack};
     } catch (error) { stop(); throw error; }
   }
-  return {id,label,location:'server',check,start};
+  return {id,label,engine,port,location:'server',check,start};
 }
